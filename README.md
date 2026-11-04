@@ -10,7 +10,7 @@
 
 ## 使用
 
-1. 安装并更新 [DSH Tavern](https://github.com/flizzywine/dsh-tavern)。需要 gameMode API、独立游戏页面与冷启动恢复支持。验证基线为酒馆提交 `03004201f`；这些功能尚未保证已发布到 main，旧版酒馆无法运行此卡。
+1. 安装并更新 [DSH Tavern 的 main 版本](https://github.com/flizzywine/dsh-tavern)。所需的 gameMode API、独立游戏页面与冷启动恢复支持已合入 main（提交 [`04e64012`](https://github.com/flizzywine/dsh-tavern/commit/04e640128cd7333ef65fd7fb41a6b777dcec77c0)）；请更新到该提交或更新版本，旧版及 stable 分支不支持此卡。
 2. 导入 `.dshcard`，启用卡内插件，配置本局后台模型。
 3. 新开游玩，进入大厅并点击“开始 六人狼人杀”。座位与身份随机分配。
 4. 更新卡片：人物卡选择窗口 → 批量管理 → 选中原卡 → 更新 → 上传新版。保留已有会话。
