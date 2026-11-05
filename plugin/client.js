@@ -99,27 +99,94 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
     }
   }
   const hudCss = `
-  .ww-hud{position:absolute;top:12px;left:50%;transform:translateX(-50%);max-width:calc(100% - 24px);display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:10px 16px;pointer-events:auto;color:var(--gal-ui-ink);background:var(--gal-ui-surface);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);box-shadow:var(--gal-ui-shadow);font:14px/1.4 var(--gal-ui-font)}
-  .ww-hud *{box-sizing:border-box}.ww-hud button,.ww-hud textarea{font:inherit;pointer-events:auto}.ww-hud button{cursor:pointer;color:var(--gal-ui-ink);background:var(--gal-ui-surface-2);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);padding:6px 12px;min-height:36px}.ww-hud button:disabled{opacity:.45;cursor:default}.ww-hud :focus-visible{outline:2px solid var(--gal-ui-focus);outline-offset:2px}
+  .ww-root{position:absolute;inset:0;pointer-events:none}
+  .ww-hud,.ww-bar{position:absolute;pointer-events:auto;color:var(--gal-ui-ink);background:var(--gal-ui-surface);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);box-shadow:var(--gal-ui-shadow);font:14px/1.4 var(--gal-ui-font)}
+  .ww-hud{top:12px;left:50%;transform:translateX(-50%);max-width:calc(100% - 24px);display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:10px 16px}
+  .ww-root *{box-sizing:border-box}.ww-root button,.ww-root textarea,.ww-root input{font:inherit;pointer-events:auto}.ww-root button{cursor:pointer;color:var(--gal-ui-ink);background:var(--gal-ui-surface-2);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);padding:6px 12px;min-height:36px}.ww-root button:disabled{opacity:.45;cursor:default}.ww-root :focus-visible{outline:2px solid var(--gal-ui-focus);outline-offset:2px}
   .ww-phase{display:flex;flex-direction:column;min-width:96px;white-space:nowrap}.ww-phase b{font-size:18px}.ww-phase small{color:var(--gal-ui-muted)}.ww-clock{font-size:22px;color:var(--gal-ui-accent);font-variant-numeric:tabular-nums}
-  .ww-seats{display:flex;gap:8px;margin:0;padding:0;list-style:none}.ww-seat{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;width:72px;padding:4px 2px;border:1px solid transparent;border-radius:var(--gal-ui-radius);background:transparent}
+  .ww-seats{display:flex;gap:8px;margin:0;padding:0;list-style:none}.ww-seats>li{position:relative}.ww-seat{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;width:72px;padding:4px 2px;border:1px solid transparent;border-radius:var(--gal-ui-radius);background:transparent}
   .ww-seat .ww-av{position:relative;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;outline:1px solid var(--gal-ui-line);overflow:hidden;background:var(--gal-ui-surface-2)}.ww-seat .ww-you{color:var(--gal-ui-accent);font-size:20px}
   .ww-no{position:absolute;top:0;left:2px;min-width:20px;padding:0 4px;font-size:12px;line-height:18px;text-align:center;background:var(--gal-ui-surface);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);z-index:1}
   .ww-nm{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.ww-st{font-size:11px;color:var(--gal-ui-muted)}
   .ww-seat.speak .ww-av{outline:3px solid var(--gal-ui-accent);box-shadow:0 0 14px var(--gal-ui-accent)}.ww-seat.speak .ww-nm,.ww-seat.me .ww-nm{color:var(--gal-ui-accent)}
   .ww-seat.out .ww-av{opacity:.45;filter:grayscale(1)}.ww-seat.out .ww-nm{color:var(--gal-ui-muted);text-decoration:line-through}
-  .ww-seats button.ww-seat{min-height:0;padding:4px 2px;border-color:var(--gal-ui-line)}.ww-seats button.ww-seat[aria-pressed=true]{border-color:var(--gal-ui-accent);background:var(--gal-ui-surface-2);box-shadow:inset 0 0 0 1px var(--gal-ui-accent)}
-  .ww-act{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.ww-count,.ww-note{color:var(--gal-ui-muted);font-size:13px}.ww-role{padding:4px 10px;border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);white-space:nowrap}
-  .ww-hud .ww-primary{background:var(--gal-ui-accent);color:var(--gal-ui-accent-ink);border-color:var(--gal-ui-accent);font-weight:700}
-  .ww-speak{display:flex;gap:8px;align-items:flex-end;flex:1 1 100%}.ww-speak textarea{flex:1;min-height:56px;max-height:140px;resize:vertical;padding:8px 10px;color:var(--gal-ui-ink);background:var(--gal-ui-surface-2);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius)}
-  .ww-alert{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:10px}.ww-controls{display:flex;gap:6px}
+  .ww-root button.ww-seat{min-height:0;padding:4px 2px;border-color:transparent;background:transparent}.ww-root button.ww-seat.pick{border-color:var(--gal-ui-line)}.ww-root button.ww-seat[aria-pressed=true]{border-color:var(--gal-ui-accent);background:var(--gal-ui-surface-2);box-shadow:inset 0 0 0 1px var(--gal-ui-accent)}
+  .ww-root .ww-mark{position:absolute;top:0;right:2px;z-index:2;min-width:22px;min-height:22px;padding:0 3px;font-size:12px;line-height:20px;font-weight:700;color:var(--gal-ui-accent);background:var(--gal-ui-surface);border:1px dashed var(--gal-ui-line);border-radius:var(--gal-ui-radius)}.ww-root .ww-mark.empty{opacity:.55;color:var(--gal-ui-muted)}
+  .ww-act{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.ww-count,.ww-note{color:var(--gal-ui-muted);font-size:13px}.ww-root .ww-role{padding:4px 10px;white-space:nowrap}
+  .ww-root .ww-primary{background:var(--gal-ui-accent);color:var(--gal-ui-accent-ink);border-color:var(--gal-ui-accent);font-weight:700}
+  .ww-speak{display:flex;gap:8px;align-items:flex-end;flex:1 1 100%}.ww-root textarea{flex:1;width:100%;min-height:56px;max-height:140px;resize:vertical;padding:8px 10px;color:var(--gal-ui-ink);background:var(--gal-ui-surface-2);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius)}
+  .ww-alert{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .ww-pop{position:absolute;top:calc(100% + 8px);z-index:3;display:flex;flex-direction:column;gap:10px;padding:12px 14px;color:var(--gal-ui-ink);background:var(--gal-ui-surface);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);box-shadow:var(--gal-ui-shadow)}
+  .ww-menu{left:50%;transform:translateX(-50%);width:max-content;max-width:100%}.ww-menu-row{display:flex;gap:6px;align-items:center}.ww-menu-row button{min-width:44px}.ww-menu input{width:4.5em;min-height:36px;padding:4px 8px;color:var(--gal-ui-ink);background:var(--gal-ui-surface-2);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius)}
+  .ww-root .ww-menu button[aria-pressed=true]{border-color:var(--gal-ui-accent);color:var(--gal-ui-accent)}
+  .ww-sheet{right:0;width:min(360px,100%);max-height:min(60vh,520px);overflow:auto}.ww-sheet h3{margin:0;font-size:12px;font-weight:600;color:var(--gal-ui-muted)}.ww-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.ww-sheet-head b{font-size:20px;color:var(--gal-ui-accent)}
+  .ww-sheet ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}.ww-sheet li,.ww-sheet p{margin:0;font-size:13px;overflow-wrap:anywhere}.ww-sheet textarea{min-height:110px;max-height:240px}
+  .ww-phone{top:0;left:0;right:0;transform:none;max-width:none;flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:6px;padding:6px 8px}
+  .ww-phone .ww-row{display:flex;align-items:center;gap:8px;min-width:0}.ww-phone .ww-phase{flex-direction:row;align-items:baseline;gap:8px;min-width:0;flex:1;overflow:hidden}.ww-phone .ww-phase b{font-size:16px}.ww-phone .ww-clock{font-size:18px}
+  .ww-phone .ww-seats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}.ww-phone .ww-seat{width:100%;min-height:36px;padding:3px 1px}.ww-phone .ww-seat .ww-av{width:36px;height:36px}.ww-phone .ww-nm{font-size:11px}.ww-phone .ww-st{display:none}.ww-phone .ww-no{font-size:10px;line-height:15px;min-width:16px;padding:0 2px}
+  .ww-phone .ww-mark{right:0}.ww-phone .ww-sheet{left:0;right:0;width:auto}.ww-phone .ww-menu{left:0;right:0;transform:none;width:auto}
+  .ww-bar{left:8px;right:8px;bottom:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;max-height:45%;overflow:auto}.ww-bar .ww-pickinfo{display:flex;align-items:center;gap:8px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ww-bar .ww-pickinfo b{color:var(--gal-ui-accent)}
   `
-  const VOTE_SECONDS = 30
-  function Hud({ gameId, data, busy, advance, revision, paused, error, resume, read, Avatar, GameControls }) {
-    const stage = data.stage, action = data.action, mine = action?.targets?.length > 0
+  const VOTE_SECONDS = 30, MARKS = ['好', '狼', '?']
+  // The stage reports its device profile; an upright phone ('mobile-portrait') gets the two-row strip and bottom bar.
+  const isPhone = device => device === 'phone' || device === 'mobile-portrait'
+  let hostUi = null
+  // Private suspicion marks and notes live in the card's own game data (host handler 'notes'), never in game state.
+  function useNotes(gameId, generation) {
+    const [notes, setNotes] = React.useState(null), [status, setStatus] = React.useState('loading'), [problem, setProblem] = React.useState('')
+    const latest = React.useRef(null), timer = React.useRef(null)
+    latest.current = notes
+    const load = React.useCallback(() => {
+      setStatus('loading')
+      hostUi.callHost('notes', { gameId, op: 'read' }).then(n => { setNotes({ marks: n?.marks || {}, text: n?.text || '' }); setStatus('ready') }, e => { setProblem(e.message); setStatus('load-error') })
+    }, [gameId])
+    React.useEffect(() => { load() }, [load, generation])
+    const save = patch => hostUi.callHost('notes', { gameId, op: 'save', ...patch }).then(() => setStatus('ready'), e => { setProblem(e.message); setStatus('error') })
+    const setMark = (id, mark) => {
+      const marks = { ...latest.current.marks }
+      if (mark) marks[id] = mark; else delete marks[id]
+      setNotes({ ...latest.current, marks }); setStatus('saving'); void save({ marks })
+    }
+    const flushText = () => { if (!timer.current) return; clearTimeout(timer.current); timer.current = null; void save({ text: latest.current.text }) }
+    const setText = text => { setNotes({ ...latest.current, text }); setStatus('saving'); clearTimeout(timer.current); timer.current = setTimeout(() => { timer.current = null; void save({ text }) }, 800) }
+    React.useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); void hostUi.callHost('notes', { gameId, op: 'save', text: latest.current.text }) } }, [gameId])
+    const retry = () => { if (status === 'load-error') load(); else { setStatus('saving'); void save({ ...latest.current }) } }
+    return { notes, status, problem, setMark, setText, flushText, retry }
+  }
+  function MarkMenu({ seat, mark, pick, close }) {
+    const [custom, setCustom] = React.useState(mark && !MARKS.includes(mark) ? mark : '')
+    const first = React.useRef(null)
+    React.useEffect(() => { first.current?.focus() }, [])
+    const done = value => { pick(value); close() }
+    return h('div', { className: 'ww-pop ww-menu', role: 'dialog', 'aria-label': seat.id + '号 ' + seat.name + ' · 标记' },
+      h('div', { className: 'ww-menu-row' }, MARKS.map((m, i) => h('button', { key: m, ref: i ? null : first, type: 'button', 'aria-pressed': mark === m, onClick: () => done(m) }, m))),
+      h('form', { className: 'ww-menu-row', onSubmit: e => { e.preventDefault(); if (custom.trim()) done(custom.trim()) } },
+        h('input', { value: custom, maxLength: 2, placeholder: '自定', 'aria-label': '自定义标记，最多2个字', onChange: e => setCustom(e.target.value) }),
+        h('button', { type: 'submit', disabled: !custom.trim() }, '标记')),
+      h('div', { className: 'ww-menu-row' }, h('button', { type: 'button', disabled: !mark, onClick: () => done(null) }, '清除'), h('button', { type: 'button', onClick: close }, '取消')))
+  }
+  function Sheet({ data, notes, GameControls, close }) {
+    const stage = data.stage, closer = React.useRef(null), results = stage.self.nightResults
+    React.useEffect(() => { closer.current?.focus() }, [])
+    const saving = { loading: '正在读取笔记…', saving: '保存中…', ready: '已保存', error: '保存失败：' + notes.problem, 'load-error': '笔记读取失败：' + notes.problem }[notes.status]
+    const mates = (data.teammates || []).filter(id => id !== data.human)
+    return h('div', { className: 'ww-pop ww-sheet', id: 'ww-sheet', role: 'dialog', 'aria-label': '你的私密面板' },
+      h('div', { className: 'ww-sheet-head' }, h('div', null, h('h3', null, '你的身份 · ' + data.human + '号'), h('b', null, stage.self.role)), h('button', { ref: closer, type: 'button', onClick: close }, '关闭')),
+      mates.length ? h('p', null, '狼队同伴：' + mates.map(id => id + '号 ' + (stage.seats.find(s => s.id === id)?.name || '')).join('、')) : null,
+      h('h3', null, '夜间结果'),
+      results.length ? h('ul', null, results.map(r => h('li', { key: r.id }, r.text))) : h('p', { className: 'ww-note' }, '暂无夜间结果。'),
+      h('h3', null, '私人笔记'),
+      notes.notes ? h('textarea', { value: notes.notes.text, maxLength: 20000, 'aria-label': '私人笔记，只有你能看到', placeholder: '记下你的推理，只有你能看到…', onChange: e => notes.setText(e.target.value), onBlur: notes.flushText }) : null,
+      h('div', { className: 'ww-menu-row', role: 'status' }, h('span', { className: 'ww-note' }, saving), notes.status === 'error' || notes.status === 'load-error' ? h('button', { type: 'button', onClick: notes.retry }, '重试') : null),
+      h('h3', null, '游戏控制'), h('div', { className: 'ww-menu-row' }, h(GameControls)))
+  }
+  function Hud({ gameId, data, busy, advance, revision, paused, error, resume, read, device, Avatar, GameControls }) {
+    const stage = data.stage, action = data.action, mine = action?.targets?.length > 0, phone = isPhone(device)
     const [target, setTargetState] = React.useState(null), [text, setText] = React.useState('')
-    const [left, setLeft] = React.useState(VOTE_SECONDS)
-    const attempted = React.useRef(null)
+    const [left, setLeft] = React.useState(VOTE_SECONDS), [open, setOpen] = React.useState(null) // null | 'sheet' | seat id
+    const attempted = React.useRef(null), root = React.useRef(null), opener = React.useRef(null)
+    const notes = useNotes(gameId, data.phase === 'identity')
+    const marks = notes.notes?.marks || {}
     const setTarget = id => { setTargetState(id); if (id) picks.set(gameId, id); else picks.delete(gameId); refreshScene() }
     React.useEffect(() => { setTargetState(null); setText(''); if (picks.delete(gameId)) refreshScene() }, [data.phase, data.day, action?.kind])
     React.useEffect(() => {
@@ -136,46 +203,74 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
       const timer = setTimeout(() => setLeft(left - 1), 1000)
       return () => clearTimeout(timer)
     }, [voting, left, busy, paused, error])
+    // Popovers (sheet, mark menu) close on Escape or a press outside the panel, and hand focus back to their opener.
+    const close = React.useCallback(() => { setOpen(null); opener.current?.focus?.() }, [])
+    const toggle = (what, event) => { if (open === what) return close(); opener.current = event.currentTarget; setOpen(what) }
+    React.useEffect(() => {
+      if (open === null) return
+      const key = e => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
+      const press = e => { if (!root.current?.contains(e.target)) setOpen(null) }
+      document.addEventListener('keydown', key, true); document.addEventListener('pointerdown', press, true)
+      return () => { document.removeEventListener('keydown', key, true); document.removeEventListener('pointerdown', press, true) }
+    }, [open, close])
     const submit = async input => { if (await advance(input) !== false) { setText(''); setTarget(null) } }
     const retry = () => { attempted.current = null; resume(); if (error && action && action.kind !== 'auto') { if (action.kind === 'speak') void advance({ text }); else if (target !== null) void advance({ target }); else void advance(null) } }
     const secret = ['night', 'wolf-talk', 'wolf-vote', 'seer', 'inspection', 'identity'].includes(data.phase)
     const seat = s => {
-      const pickable = mine && action.targets.includes(s.id)
+      const pickable = mine && action.targets.includes(s.id), mark = marks[s.id]
+      const label = s.id + '号 ' + (s.self ? '你' : s.name) + (s.alive ? '' : '，已出局') + (mark ? '，标记：' + mark : '')
       const body = [h('span', { key: 'n', className: 'ww-no' }, s.id),
-        h('span', { key: 'a', className: 'ww-av' }, s.self ? h('span', { className: 'ww-you' }, '你') : h(Avatar, { name: s.name, size: 52 })),
+        h('span', { key: 'a', className: 'ww-av' }, s.self ? h('span', { className: 'ww-you' }, '你') : h(Avatar, { name: s.name, size: phone ? 36 : 52 })),
         h('span', { key: 'm', className: 'ww-nm' }, s.self ? '你' : s.name),
         h('span', { key: 's', className: 'ww-st' }, data.revealed ? data.revealed.find(r => r.id === s.id)?.role : s.alive ? (s.speaking ? '发言中' : '存活') : '出局')]
-      const className = 'ww-seat' + (s.speaking ? ' speak' : '') + (s.self ? ' me' : '') + (s.alive ? '' : ' out')
-      return h('li', { key: s.id }, pickable
-        ? h('button', { type: 'button', className, disabled: busy, 'aria-pressed': target === s.id, 'aria-label': s.id + '号 ' + s.name, onClick: () => setTarget(target === s.id ? null : s.id) }, body)
-        : h('div', { className, 'aria-label': s.id + '号 ' + (s.self ? '你' : s.name) + (s.alive ? '' : '，已出局') }, body))
+      const className = 'ww-seat' + (s.speaking ? ' speak' : '') + (s.self ? ' me' : '') + (s.alive ? '' : ' out') + (pickable ? ' pick' : '')
+      if (s.self) return h('li', { key: s.id }, h('div', { className, 'aria-label': label }, body))
+      // Tapping a seat votes when it is a target, otherwise it opens the mark menu; the corner tag always does.
+      const markable = notes.notes !== null
+      return h('li', { key: s.id },
+        h('button', { type: 'button', className, disabled: pickable ? busy : undefined, 'aria-label': label, 'aria-pressed': pickable ? target === s.id : undefined,
+          'aria-haspopup': pickable ? undefined : 'dialog', onClick: e => pickable ? setTarget(target === s.id ? null : s.id) : markable && toggle(s.id, e),
+          onContextMenu: markable ? e => { e.preventDefault(); toggle(s.id, e) } : undefined }, body),
+        mark || (pickable && markable) ? h('button', { type: 'button', className: 'ww-mark' + (mark ? '' : ' empty'), 'aria-label': s.id + '号 标记' + (mark ? '：' + mark : ''), 'aria-haspopup': 'dialog', disabled: !markable, onClick: e => toggle(s.id, e) }, mark || '+') : null)
     }
     const gate = { identity: '我已了解，进入第一晚', inspection: '记住结果，闭眼等待', daybreak: data.pendingLastWords ? (data.currentSpeaker === data.human ? '发表我的遗言' : '听取首夜遗言') : '进入白天讨论', 'next-night': '进入第' + data.day + '晚' }
     const confirm = { kill: '确认袭击', inspect: '确认查验', vote: '确认投票' }
     const status = busy ? '正在思考…' : action?.kind === 'auto' ? (data.spectating ? '观战中' : data.phase === 'speech' ? data.currentSpeaker + '号正在发言' : '其他玩家正在行动') : action ? '轮到你行动' : ''
-    return h('div', { className: 'ww-hud', role: 'region', 'aria-label': '月下六席 · 狼人杀' }, h('style', null, hudCss),
-      h('div', { className: 'ww-phase' }, h('b', null, labels[data.phase]), h('small', null, '第' + data.day + '天' + (status ? ' · ' + status : '')),
-        voting ? h('span', { className: 'ww-clock', role: 'timer', 'aria-label': '投票剩余 ' + left + ' 秒' }, '0:' + String(Math.max(left, 0)).padStart(2, '0')) : null),
-      h('ul', { className: 'ww-seats', 'aria-label': '座位' }, stage.seats.map(seat)),
-      h('div', { className: 'ww-act' },
-        h('span', { className: 'ww-role', 'aria-label': '你的身份' }, stage.self.role),
-        mine ? h(React.Fragment, null,
-          voting ? h('span', { className: 'ww-count' }, '已投 ' + stage.vote.cast + '/' + stage.vote.total) : h('span', { className: 'ww-note' }, { kill: '选择今晚的袭击目标', inspect: '选择要查验的角色', vote: '' }[action.kind]),
-          action.abstain ? h('button', { type: 'button', disabled: busy, onClick: () => submit({ target: 0 }) }, '弃票') : null,
-          h('button', { type: 'button', className: 'ww-primary', disabled: busy || !target, onClick: () => submit({ target }) }, confirm[action.kind])) : null,
-        action?.kind === 'confirm' ? h(React.Fragment, null,
-          data.phase === 'inspection' ? h('span', { className: 'ww-note' }, stage.self.nightResults.at(-1)?.text) : null,
-          h('button', { type: 'button', className: 'ww-primary', disabled: busy, onClick: () => advance(null) }, gate[action.gate])) : null,
-        data.winner ? h(React.Fragment, null, h('b', null, data.winner === '平局' ? '本局平局' : data.winner + '获胜'),
-          h('button', { type: 'button', className: 'ww-primary', onClick: () => { returned.add(gameId); refreshScene() } }, '返回故事')) : null,
-        h('span', { className: 'ww-controls' }, h(GameControls))),
-      action?.kind === 'speak' ? h('div', { className: 'ww-speak' },
+    const picked = stage.seats.find(s => s.id === target)
+    const phase = h('div', { key: 'phase', className: 'ww-phase' }, h('b', null, labels[data.phase]), h('small', null, '第' + data.day + '天' + (status ? ' · ' + status : '')),
+      voting ? h('span', { className: 'ww-clock', role: 'timer', 'aria-label': '投票剩余 ' + left + ' 秒' }, '0:' + String(Math.max(left, 0)).padStart(2, '0')) : null)
+    const role = h('button', { key: 'role', type: 'button', className: 'ww-role', 'aria-haspopup': 'dialog', 'aria-expanded': open === 'sheet', 'aria-controls': open === 'sheet' ? 'ww-sheet' : undefined, 'aria-label': '你的身份：' + stage.self.role + '，打开私密面板', onClick: e => toggle('sheet', e) }, stage.self.role + ' ▾')
+    const seats = h('ul', { key: 'seats', className: 'ww-seats', 'aria-label': '座位' }, stage.seats.map(seat))
+    const actions = [
+      mine ? h(React.Fragment, { key: 'pick' },
+        phone ? h('span', { className: 'ww-pickinfo' }, picked ? [h(Avatar, { key: 'a', name: picked.name, size: 28 }), h('span', { key: 't' }, { kill: '袭击 ', inspect: '查验 ', vote: '投给 ' }[action.kind], h('b', null, picked.id + ' ' + picked.name))] : h('span', { className: 'ww-note' }, { kill: '点选今晚的袭击目标', inspect: '点选要查验的角色', vote: '点选你要放逐的角色' }[action.kind])) : null,
+        voting ? h('span', { className: 'ww-count' }, '已投 ' + stage.vote.cast + '/' + stage.vote.total) : phone ? null : h('span', { className: 'ww-note' }, { kill: '选择今晚的袭击目标', inspect: '选择要查验的角色', vote: '' }[action.kind]),
+        action.abstain ? h('button', { type: 'button', disabled: busy, onClick: () => submit({ target: 0 }) }, '弃票') : null,
+        h('button', { type: 'button', className: 'ww-primary', disabled: busy || !target, onClick: () => submit({ target }) }, phone ? '确认' : confirm[action.kind])) : null,
+      action?.kind === 'confirm' ? h(React.Fragment, { key: 'gate' },
+        data.phase === 'inspection' ? h('span', { className: 'ww-note' }, stage.self.nightResults.at(-1)?.text) : null,
+        h('button', { type: 'button', className: 'ww-primary', disabled: busy, onClick: () => advance(null) }, gate[action.gate])) : null,
+      data.winner ? h(React.Fragment, { key: 'end' }, h('b', null, data.winner === '平局' ? '本局平局' : data.winner + '获胜'),
+        h('button', { type: 'button', className: 'ww-primary', onClick: () => { returned.add(gameId); refreshScene() } }, '返回故事')) : null]
+    const extra = [
+      action?.kind === 'speak' ? h('div', { key: 'speak', className: 'ww-speak' },
         h('textarea', { value: text, maxLength: 1200, disabled: busy, 'aria-label': '你的发言', placeholder: data.phase === 'last-words' ? '留下你的身份、查验结果和最后建议…' : secret ? '悄声与队友交换你的判断…' : '说出你的观察，让其他人相信你…', onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && text.trim() && !busy) void submit({ text }) } }),
         h('button', { type: 'button', className: 'ww-primary', disabled: busy || !text.trim(), onClick: () => submit({ text }) }, secret ? '发送密谈' : data.phase === 'last-words' ? '提交遗言' : '结束发言')) : null,
-      paused || error ? h('div', { className: 'ww-alert', role: 'alert' }, h('span', null, error ? '行动未完成：' + error : '游戏已暂停'),
-        h('button', { type: 'button', className: 'ww-primary', disabled: busy, onClick: retry }, error ? '重试当前行动' : '恢复游戏')) : null)
+      paused || error ? h('div', { key: 'alert', className: 'ww-alert', role: 'alert' }, h('span', null, error ? '行动未完成：' + error : '游戏已暂停'),
+        h('button', { type: 'button', className: 'ww-primary', disabled: busy, onClick: retry }, error ? '重试当前行动' : '恢复游戏')) : null]
+    const openSeat = typeof open === 'number' ? stage.seats.find(s => s.id === open) : null
+    const pops = [open === 'sheet' ? h(Sheet, { key: 'sheet', data, notes, GameControls, close }) : null,
+      openSeat && notes.notes ? h(MarkMenu, { key: 'menu-' + openSeat.id, seat: openSeat, mark: marks[openSeat.id], pick: value => notes.setMark(openSeat.id, value), close }) : null]
+    const live = actions.some(Boolean) || extra.some(Boolean)
+    return h('div', { ref: root, className: 'ww-root' }, h('style', null, hudCss),
+      phone
+        ? h(React.Fragment, null,
+          h('div', { className: 'ww-hud ww-phone', role: 'region', 'aria-label': '月下六席 · 狼人杀' }, h('div', { className: 'ww-row' }, phase, role), seats, pops),
+          live ? h('div', { className: 'ww-bar', role: 'region', 'aria-label': '行动' }, actions, extra) : null)
+        : h('div', { className: 'ww-hud', role: 'region', 'aria-label': '月下六席 · 狼人杀' }, phase, seats, h('div', { className: 'ww-act' }, role, actions), extra, pops))
   }
   return { name: 'dsh-card-werewolf', inject: ['tavernUi'], apply(ctx) {
+    hostUi = ctx.tavernUi
     const view = { name: 'six-player', presentation: 'stage', render: Game, lobby: Lobby, stage: { scene, hud: Hud } }
     // scene() is re-read when the host re-renders the game surface; re-registering the same view is the
     // only signal a card has to ask for that after a client-only change (vote pick, 返回故事).
