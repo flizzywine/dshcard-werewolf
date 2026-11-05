@@ -77,5 +77,109 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
       h('button', { disabled: busy, onClick: start, style: { margin: '0 auto', padding: '16px 48px', border: '1px solid #efdbb6', borderRadius: 9, background: 'linear-gradient(120deg,#efdcaf,#bd9c61)', color: '#172033', fontSize: 18, fontWeight: 650 } }, busy ? '正在入席…' : '开始 六人狼人杀'),
       h('p', { style: { color: '#9aaac0', marginTop: 26, fontSize: 13, lineHeight: 2 } }, '座位与身份随机分配 · 首夜死者可留遗言', h('br'), '主持自动推进流程，轮到你时停下。进度自动保存。'));
   }
-  return { name: 'dsh-card-werewolf', inject: ['tavernUi'], apply(ctx) { ctx.tavernUi.registerGameModeView({ name: 'six-player', presentation: 'page', render: Game, lobby: Lobby }) } }
+  // Stage lease: the card maps its projection onto the generic StageScene and fills the HUD strip.
+  // Card-local client state the scene needs (vote pick → focus, 返回故事 → release), keyed by game.
+  const picks = new Map(), returned = new Set()
+  let refreshScene = () => {}
+  const publicLines = data => data.stage.lines.filter((line, i) => !data.history[i]?.private)
+  function scene({ gameId, data }) {
+    if (!data?.stage || (data.winner && returned.has(gameId))) return null
+    const lines = publicLines(data)
+    const seats = data.stage.seats.filter(s => s.alive && !s.self)
+    const speaker = seats.find(s => s.speaking), pick = seats.find(s => s.id === picks.get(gameId))
+    const recent = [...lines].reverse().map(l => seats.find(s => s.name === l.speaker)).filter(Boolean)
+    const chosen = [...new Set([speaker, pick, ...recent, ...seats].filter(Boolean))].slice(0, 4)
+    const centre = speaker || pick || chosen[0]
+    const ordered = chosen.filter(s => s !== centre).sort((a, b) => a.id - b.id)
+    if (centre) ordered.splice(Math.floor(ordered.length / 2), 0, centre)
+    const emotion = name => [...lines].reverse().find(l => l.speaker === name)?.emotion || undefined
+    return {
+      actors: ordered.map(s => ({ name: s.name, emotion: emotion(s.name), focus: s === pick || undefined })),
+      lines: lines.map(l => ({ id: String(l.id), speaker: l.speaker || undefined, text: l.text, emotion: l.emotion || undefined })),
+    }
+  }
+  const hudCss = `
+  .ww-hud{position:absolute;top:12px;left:50%;transform:translateX(-50%);max-width:calc(100% - 24px);display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:10px 16px;pointer-events:auto;color:var(--gal-ui-ink);background:var(--gal-ui-surface);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);box-shadow:var(--gal-ui-shadow);font:14px/1.4 var(--gal-ui-font)}
+  .ww-hud *{box-sizing:border-box}.ww-hud button,.ww-hud textarea{font:inherit;pointer-events:auto}.ww-hud button{cursor:pointer;color:var(--gal-ui-ink);background:var(--gal-ui-surface-2);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);padding:6px 12px;min-height:36px}.ww-hud button:disabled{opacity:.45;cursor:default}.ww-hud :focus-visible{outline:2px solid var(--gal-ui-focus);outline-offset:2px}
+  .ww-phase{display:flex;flex-direction:column;min-width:96px;white-space:nowrap}.ww-phase b{font-size:18px}.ww-phase small{color:var(--gal-ui-muted)}.ww-clock{font-size:22px;color:var(--gal-ui-accent);font-variant-numeric:tabular-nums}
+  .ww-seats{display:flex;gap:8px;margin:0;padding:0;list-style:none}.ww-seat{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;width:72px;padding:4px 2px;border:1px solid transparent;border-radius:var(--gal-ui-radius);background:transparent}
+  .ww-seat .ww-av{position:relative;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;outline:1px solid var(--gal-ui-line);overflow:hidden;background:var(--gal-ui-surface-2)}.ww-seat .ww-you{color:var(--gal-ui-accent);font-size:20px}
+  .ww-no{position:absolute;top:0;left:2px;min-width:20px;padding:0 4px;font-size:12px;line-height:18px;text-align:center;background:var(--gal-ui-surface);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);z-index:1}
+  .ww-nm{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.ww-st{font-size:11px;color:var(--gal-ui-muted)}
+  .ww-seat.speak .ww-av{outline:3px solid var(--gal-ui-accent);box-shadow:0 0 14px var(--gal-ui-accent)}.ww-seat.speak .ww-nm,.ww-seat.me .ww-nm{color:var(--gal-ui-accent)}
+  .ww-seat.out .ww-av{opacity:.45;filter:grayscale(1)}.ww-seat.out .ww-nm{color:var(--gal-ui-muted);text-decoration:line-through}
+  .ww-seats button.ww-seat{min-height:0;padding:4px 2px;border-color:var(--gal-ui-line)}.ww-seats button.ww-seat[aria-pressed=true]{border-color:var(--gal-ui-accent);background:var(--gal-ui-surface-2);box-shadow:inset 0 0 0 1px var(--gal-ui-accent)}
+  .ww-act{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.ww-count,.ww-note{color:var(--gal-ui-muted);font-size:13px}.ww-role{padding:4px 10px;border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius);white-space:nowrap}
+  .ww-hud .ww-primary{background:var(--gal-ui-accent);color:var(--gal-ui-accent-ink);border-color:var(--gal-ui-accent);font-weight:700}
+  .ww-speak{display:flex;gap:8px;align-items:flex-end;flex:1 1 100%}.ww-speak textarea{flex:1;min-height:56px;max-height:140px;resize:vertical;padding:8px 10px;color:var(--gal-ui-ink);background:var(--gal-ui-surface-2);border:1px solid var(--gal-ui-line);border-radius:var(--gal-ui-radius)}
+  .ww-alert{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:10px}.ww-controls{display:flex;gap:6px}
+  `
+  const VOTE_SECONDS = 30
+  function Hud({ gameId, data, busy, advance, revision, paused, error, resume, read, Avatar, GameControls }) {
+    const stage = data.stage, action = data.action, mine = action?.targets?.length > 0
+    const [target, setTargetState] = React.useState(null), [text, setText] = React.useState('')
+    const [left, setLeft] = React.useState(VOTE_SECONDS)
+    const attempted = React.useRef(null)
+    const setTarget = id => { setTargetState(id); if (id) picks.set(gameId, id); else picks.delete(gameId); refreshScene() }
+    React.useEffect(() => { setTargetState(null); setText(''); if (picks.delete(gameId)) refreshScene() }, [data.phase, data.day, action?.kind])
+    React.useEffect(() => {
+      if (action?.kind !== 'auto' || busy || paused || error || read.unread > 1 || attempted.current === revision) return
+      const timer = setTimeout(() => { attempted.current = revision; void advance(null) }, 300)
+      return () => clearTimeout(timer)
+    }, [revision, action?.kind, busy, paused, error, read.unread])
+    // The player's vote has 30 s; expiry abstains. The clock holds while busy, paused or failed.
+    const voting = stage.vote.open
+    React.useEffect(() => { setLeft(VOTE_SECONDS) }, [voting, data.day])
+    React.useEffect(() => {
+      if (!voting || busy || paused || error) return
+      if (left <= 0) { void advance({ target: 0 }); return }
+      const timer = setTimeout(() => setLeft(left - 1), 1000)
+      return () => clearTimeout(timer)
+    }, [voting, left, busy, paused, error])
+    const submit = async input => { if (await advance(input) !== false) { setText(''); setTarget(null) } }
+    const retry = () => { attempted.current = null; resume(); if (error && action && action.kind !== 'auto') { if (action.kind === 'speak') void advance({ text }); else if (target !== null) void advance({ target }); else void advance(null) } }
+    const secret = ['night', 'wolf-talk', 'wolf-vote', 'seer', 'inspection', 'identity'].includes(data.phase)
+    const seat = s => {
+      const pickable = mine && action.targets.includes(s.id)
+      const body = [h('span', { key: 'n', className: 'ww-no' }, s.id),
+        h('span', { key: 'a', className: 'ww-av' }, s.self ? h('span', { className: 'ww-you' }, '你') : h(Avatar, { name: s.name, size: 52 })),
+        h('span', { key: 'm', className: 'ww-nm' }, s.self ? '你' : s.name),
+        h('span', { key: 's', className: 'ww-st' }, data.revealed ? data.revealed.find(r => r.id === s.id)?.role : s.alive ? (s.speaking ? '发言中' : '存活') : '出局')]
+      const className = 'ww-seat' + (s.speaking ? ' speak' : '') + (s.self ? ' me' : '') + (s.alive ? '' : ' out')
+      return h('li', { key: s.id }, pickable
+        ? h('button', { type: 'button', className, disabled: busy, 'aria-pressed': target === s.id, 'aria-label': s.id + '号 ' + s.name, onClick: () => setTarget(target === s.id ? null : s.id) }, body)
+        : h('div', { className, 'aria-label': s.id + '号 ' + (s.self ? '你' : s.name) + (s.alive ? '' : '，已出局') }, body))
+    }
+    const gate = { identity: '我已了解，进入第一晚', inspection: '记住结果，闭眼等待', daybreak: data.pendingLastWords ? (data.currentSpeaker === data.human ? '发表我的遗言' : '听取首夜遗言') : '进入白天讨论', 'next-night': '进入第' + data.day + '晚' }
+    const confirm = { kill: '确认袭击', inspect: '确认查验', vote: '确认投票' }
+    const status = busy ? '正在思考…' : action?.kind === 'auto' ? (data.spectating ? '观战中' : data.phase === 'speech' ? data.currentSpeaker + '号正在发言' : '其他玩家正在行动') : action ? '轮到你行动' : ''
+    return h('div', { className: 'ww-hud', role: 'region', 'aria-label': '月下六席 · 狼人杀' }, h('style', null, hudCss),
+      h('div', { className: 'ww-phase' }, h('b', null, labels[data.phase]), h('small', null, '第' + data.day + '天' + (status ? ' · ' + status : '')),
+        voting ? h('span', { className: 'ww-clock', role: 'timer', 'aria-label': '投票剩余 ' + left + ' 秒' }, '0:' + String(Math.max(left, 0)).padStart(2, '0')) : null),
+      h('ul', { className: 'ww-seats', 'aria-label': '座位' }, stage.seats.map(seat)),
+      h('div', { className: 'ww-act' },
+        h('span', { className: 'ww-role', 'aria-label': '你的身份' }, stage.self.role),
+        mine ? h(React.Fragment, null,
+          voting ? h('span', { className: 'ww-count' }, '已投 ' + stage.vote.cast + '/' + stage.vote.total) : h('span', { className: 'ww-note' }, { kill: '选择今晚的袭击目标', inspect: '选择要查验的角色', vote: '' }[action.kind]),
+          action.abstain ? h('button', { type: 'button', disabled: busy, onClick: () => submit({ target: 0 }) }, '弃票') : null,
+          h('button', { type: 'button', className: 'ww-primary', disabled: busy || !target, onClick: () => submit({ target }) }, confirm[action.kind])) : null,
+        action?.kind === 'confirm' ? h(React.Fragment, null,
+          data.phase === 'inspection' ? h('span', { className: 'ww-note' }, stage.self.nightResults.at(-1)?.text) : null,
+          h('button', { type: 'button', className: 'ww-primary', disabled: busy, onClick: () => advance(null) }, gate[action.gate])) : null,
+        data.winner ? h(React.Fragment, null, h('b', null, data.winner === '平局' ? '本局平局' : data.winner + '获胜'),
+          h('button', { type: 'button', className: 'ww-primary', onClick: () => { returned.add(gameId); refreshScene() } }, '返回故事')) : null,
+        h('span', { className: 'ww-controls' }, h(GameControls))),
+      action?.kind === 'speak' ? h('div', { className: 'ww-speak' },
+        h('textarea', { value: text, maxLength: 1200, disabled: busy, 'aria-label': '你的发言', placeholder: data.phase === 'last-words' ? '留下你的身份、查验结果和最后建议…' : secret ? '悄声与队友交换你的判断…' : '说出你的观察，让其他人相信你…', onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && text.trim() && !busy) void submit({ text }) } }),
+        h('button', { type: 'button', className: 'ww-primary', disabled: busy || !text.trim(), onClick: () => submit({ text }) }, secret ? '发送密谈' : data.phase === 'last-words' ? '提交遗言' : '结束发言')) : null,
+      paused || error ? h('div', { className: 'ww-alert', role: 'alert' }, h('span', null, error ? '行动未完成：' + error : '游戏已暂停'),
+        h('button', { type: 'button', className: 'ww-primary', disabled: busy, onClick: retry }, error ? '重试当前行动' : '恢复游戏')) : null)
+  }
+  return { name: 'dsh-card-werewolf', inject: ['tavernUi'], apply(ctx) {
+    const view = { name: 'six-player', presentation: 'stage', render: Game, lobby: Lobby, stage: { scene, hud: Hud } }
+    // scene() is re-read when the host re-renders the game surface; re-registering the same view is the
+    // only signal a card has to ask for that after a client-only change (vote pick, 返回故事).
+    let dispose = ctx.tavernUi.registerGameModeView(view)
+    refreshScene = () => { dispose?.(); dispose = ctx.tavernUi.registerGameModeView(view) }
+  } }
 } })
