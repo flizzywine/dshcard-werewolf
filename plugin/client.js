@@ -79,12 +79,11 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
   }
   // Stage lease: the card maps its projection onto the generic StageScene and fills the HUD strip.
   // Card-local client state the scene needs (vote pick → focus, 返回故事 → release), keyed by game.
-  const picks = new Map(), returned = new Set()
+  const picks = new Map(), returned = new Map()
   let refreshScene = () => {}
-  const publicLines = data => data.stage.lines.filter((line, i) => !data.history[i]?.private)
   function scene({ gameId, data }) {
-    if (!data?.stage || (data.winner && returned.has(gameId))) return null
-    const lines = publicLines(data)
+    if (!data?.stage || (data.winner && returned.get(gameId) === data.matchId)) return null
+    const lines = data.stage.lines
     const seats = data.stage.seats.filter(s => s.alive && !s.self)
     const speaker = seats.find(s => s.speaking), pick = seats.find(s => s.id === picks.get(gameId))
     const recent = [...lines].reverse().map(l => seats.find(s => s.name === l.speaker)).filter(Boolean)
@@ -123,7 +122,7 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
   .ww-sheet ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}.ww-sheet li,.ww-sheet p{margin:0;font-size:13px;overflow-wrap:anywhere}.ww-sheet textarea{min-height:110px;max-height:240px}
   .ww-phone{top:0;left:0;right:0;transform:none;max-width:none;flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:6px;padding:6px 8px}
   .ww-phone .ww-row{display:flex;align-items:center;gap:8px;min-width:0}.ww-phone .ww-phase{flex-direction:row;align-items:baseline;gap:8px;min-width:0;flex:1;overflow:hidden}.ww-phone .ww-phase b{font-size:16px}.ww-phone .ww-clock{font-size:18px}
-  .ww-phone .ww-seats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}.ww-phone .ww-seat{width:100%;min-height:36px;padding:3px 1px}.ww-phone .ww-seat .ww-av{width:36px;height:36px}.ww-phone .ww-nm{font-size:11px}.ww-phone .ww-st{display:none}.ww-phone .ww-no{font-size:10px;line-height:15px;min-width:16px;padding:0 2px}
+  .ww-phone .ww-seats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.ww-phone .ww-seat{width:100%;min-height:36px;padding:3px 1px}.ww-phone .ww-seat .ww-av{width:36px;height:36px}.ww-phone .ww-nm{font-size:11px}.ww-phone .ww-st{display:none}.ww-phone .ww-no{font-size:10px;line-height:15px;min-width:16px;padding:0 2px}
   .ww-phone .ww-mark{right:0}.ww-phone .ww-sheet{left:0;right:0;width:auto}.ww-phone .ww-menu{left:0;right:0;transform:none;width:auto}
   .ww-bar{left:8px;right:8px;bottom:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;max-height:45%;overflow:auto}.ww-bar .ww-pickinfo{display:flex;align-items:center;gap:8px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ww-bar .ww-pickinfo b{color:var(--gal-ui-accent)}
   `
@@ -131,25 +130,26 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
   // The stage reports its device profile; an upright phone ('mobile-portrait') gets the two-row strip and bottom bar.
   const isPhone = device => device === 'phone' || device === 'mobile-portrait'
   let hostUi = null
+  const notesHandler = 'dsh-card-werewolf:notes'
   // Private suspicion marks and notes live in the card's own game data (host handler 'notes'), never in game state.
-  function useNotes(gameId, generation) {
+  function useNotes(gameId, matchId) {
     const [notes, setNotes] = React.useState(null), [status, setStatus] = React.useState('loading'), [problem, setProblem] = React.useState('')
     const latest = React.useRef(null), timer = React.useRef(null)
     latest.current = notes
     const load = React.useCallback(() => {
       setStatus('loading')
-      hostUi.callHost('notes', { gameId, op: 'read' }).then(n => { setNotes({ marks: n?.marks || {}, text: n?.text || '' }); setStatus('ready') }, e => { setProblem(e.message); setStatus('load-error') })
-    }, [gameId])
-    React.useEffect(() => { load() }, [load, generation])
-    const save = patch => hostUi.callHost('notes', { gameId, op: 'save', ...patch }).then(() => setStatus('ready'), e => { setProblem(e.message); setStatus('error') })
+      hostUi.callHost(notesHandler, { gameId, matchId, op: 'read' }).then(n => { setNotes({ marks: n?.marks || {}, text: n?.text || '' }); setStatus('ready') }, e => { setProblem(e.message); setStatus('load-error') })
+    }, [gameId, matchId])
+    React.useEffect(() => { load() }, [load])
+    const save = patch => hostUi.callHost(notesHandler, { gameId, matchId, op: 'save', ...patch }).then(() => setStatus('ready'), e => { setProblem(e.message); setStatus('error') })
     const setMark = (id, mark) => {
       const marks = { ...latest.current.marks }
       if (mark) marks[id] = mark; else delete marks[id]
-      setNotes({ ...latest.current, marks }); setStatus('saving'); void save({ marks })
+      latest.current = { ...latest.current, marks }; setNotes(latest.current); setStatus('saving'); void save({ marks })
     }
     const flushText = () => { if (!timer.current) return; clearTimeout(timer.current); timer.current = null; void save({ text: latest.current.text }) }
-    const setText = text => { setNotes({ ...latest.current, text }); setStatus('saving'); clearTimeout(timer.current); timer.current = setTimeout(() => { timer.current = null; void save({ text }) }, 800) }
-    React.useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); void hostUi.callHost('notes', { gameId, op: 'save', text: latest.current.text }) } }, [gameId])
+    const setText = text => { latest.current = { ...latest.current, text }; setNotes(latest.current); setStatus('saving'); clearTimeout(timer.current); timer.current = setTimeout(() => { timer.current = null; void save({ text }) }, 800) }
+    React.useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); void hostUi.callHost(notesHandler, { gameId, matchId, op: 'save', text: latest.current.text }).catch(() => {}) } }, [gameId, matchId])
     const retry = () => { if (status === 'load-error') load(); else { setStatus('saving'); void save({ ...latest.current }) } }
     return { notes, status, problem, setMark, setText, flushText, retry }
   }
@@ -169,23 +169,26 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
     const stage = data.stage, closer = React.useRef(null), results = stage.self.nightResults
     React.useEffect(() => { closer.current?.focus() }, [])
     const saving = { loading: '正在读取笔记…', saving: '保存中…', ready: '已保存', error: '保存失败：' + notes.problem, 'load-error': '笔记读取失败：' + notes.problem }[notes.status]
+    const wolfRecords = stage.self.role === '狼人' ? data.history.filter(e => e.private) : []
     const mates = (data.teammates || []).filter(id => id !== data.human)
     return h('div', { className: 'ww-pop ww-sheet', id: 'ww-sheet', role: 'dialog', 'aria-label': '你的私密面板' },
       h('div', { className: 'ww-sheet-head' }, h('div', null, h('h3', null, '你的身份 · ' + data.human + '号'), h('b', null, stage.self.role)), h('button', { ref: closer, type: 'button', onClick: close }, '关闭')),
       mates.length ? h('p', null, '狼队同伴：' + mates.map(id => id + '号 ' + (stage.seats.find(s => s.id === id)?.name || '')).join('、')) : null,
       h('h3', null, '夜间结果'),
       results.length ? h('ul', null, results.map(r => h('li', { key: r.id }, r.text))) : h('p', { className: 'ww-note' }, '暂无夜间结果。'),
+      wolfRecords.length ? h(React.Fragment, null, h('h3', null, '狼队私密记录'),
+        h('ul', null, wolfRecords.map((record, i) => h('li', { key: i }, '第' + record.day + '夜 · ' + record.actor + '号：' + record.text)))) : null,
       h('h3', null, '私人笔记'),
       notes.notes ? h('textarea', { value: notes.notes.text, maxLength: 20000, 'aria-label': '私人笔记，只有你能看到', placeholder: '记下你的推理，只有你能看到…', onChange: e => notes.setText(e.target.value), onBlur: notes.flushText }) : null,
       h('div', { className: 'ww-menu-row', role: 'status' }, h('span', { className: 'ww-note' }, saving), notes.status === 'error' || notes.status === 'load-error' ? h('button', { type: 'button', onClick: notes.retry }, '重试') : null),
       h('h3', null, '游戏控制'), h('div', { className: 'ww-menu-row' }, h(GameControls)))
   }
-  function Hud({ gameId, data, busy, advance, revision, paused, error, resume, read, device, Avatar, GameControls }) {
+  function Hud({ gameId, data, busy, advance, revision, paused, error, resume, read, displayed, device, Avatar, GameControls }) {
     const stage = data.stage, action = data.action, mine = action?.targets?.length > 0, phone = isPhone(device)
     const [target, setTargetState] = React.useState(null), [text, setText] = React.useState('')
     const [left, setLeft] = React.useState(VOTE_SECONDS), [open, setOpen] = React.useState(null) // null | 'sheet' | seat id
     const attempted = React.useRef(null), root = React.useRef(null), opener = React.useRef(null)
-    const notes = useNotes(gameId, data.phase === 'identity')
+    const notes = useNotes(gameId, data.matchId)
     const marks = notes.notes?.marks || {}
     const setTarget = id => { setTargetState(id); if (id) picks.set(gameId, id); else picks.delete(gameId); refreshScene() }
     React.useEffect(() => { setTargetState(null); setText(''); if (picks.delete(gameId)) refreshScene() }, [data.phase, data.day, action?.kind])
@@ -218,12 +221,14 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
     const secret = ['night', 'wolf-talk', 'wolf-vote', 'seer', 'inspection', 'identity'].includes(data.phase)
     const seat = s => {
       const pickable = mine && action.targets.includes(s.id), mark = marks[s.id]
+      const speaking = action?.kind === 'speak' ? s.speaking
+        : displayed?.speaker ? s.name === displayed.speaker : s.speaking
       const label = s.id + '号 ' + (s.self ? '你' : s.name) + (s.alive ? '' : '，已出局') + (mark ? '，标记：' + mark : '')
       const body = [h('span', { key: 'n', className: 'ww-no' }, s.id),
         h('span', { key: 'a', className: 'ww-av' }, s.self ? h('span', { className: 'ww-you' }, '你') : h(Avatar, { name: s.name, size: phone ? 36 : 52 })),
         h('span', { key: 'm', className: 'ww-nm' }, s.self ? '你' : s.name),
-        h('span', { key: 's', className: 'ww-st' }, data.revealed ? data.revealed.find(r => r.id === s.id)?.role : s.alive ? (s.speaking ? '发言中' : '存活') : '出局')]
-      const className = 'ww-seat' + (s.speaking ? ' speak' : '') + (s.self ? ' me' : '') + (s.alive ? '' : ' out') + (pickable ? ' pick' : '')
+        h('span', { key: 's', className: 'ww-st' }, data.revealed ? data.revealed.find(r => r.id === s.id)?.role : s.alive ? (speaking ? '发言中' : '存活') : '出局')]
+      const className = 'ww-seat' + (speaking ? ' speak' : '') + (s.self ? ' me' : '') + (s.alive ? '' : ' out') + (pickable ? ' pick' : '')
       if (s.self) return h('li', { key: s.id }, h('div', { className, 'aria-label': label }, body))
       // Tapping a seat votes when it is a target, otherwise it opens the mark menu; the corner tag always does.
       const markable = notes.notes !== null
@@ -251,7 +256,7 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
         data.phase === 'inspection' ? h('span', { className: 'ww-note' }, stage.self.nightResults.at(-1)?.text) : null,
         h('button', { type: 'button', className: 'ww-primary', disabled: busy, onClick: () => advance(null) }, gate[action.gate])) : null,
       data.winner ? h(React.Fragment, { key: 'end' }, h('b', null, data.winner === '平局' ? '本局平局' : data.winner + '获胜'),
-        h('button', { type: 'button', className: 'ww-primary', onClick: () => { returned.add(gameId); refreshScene() } }, '返回故事')) : null]
+        h('button', { type: 'button', className: 'ww-primary', onClick: () => { returned.set(gameId, data.matchId); refreshScene() } }, '返回故事')) : null]
     const extra = [
       action?.kind === 'speak' ? h('div', { key: 'speak', className: 'ww-speak' },
         h('textarea', { value: text, maxLength: 1200, disabled: busy, 'aria-label': '你的发言', placeholder: data.phase === 'last-words' ? '留下你的身份、查验结果和最后建议…' : secret ? '悄声与队友交换你的判断…' : '说出你的观察，让其他人相信你…', onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && text.trim() && !busy) void submit({ text }) } }),
@@ -269,12 +274,24 @@ window.__ModuleLoader__.load({ id: 'dsh-card-werewolf', factory: require => {
           live ? h('div', { className: 'ww-bar', role: 'region', 'aria-label': '行动' }, actions, extra) : null)
         : h('div', { className: 'ww-hud', role: 'region', 'aria-label': '月下六席 · 狼人杀' }, phase, seats, h('div', { className: 'ww-act' }, role, actions), extra, pops))
   }
+  const stage = { scene, hud: props => h(Hud, { ...props, key: props.gameId + ':' + props.data.matchId }) }
   return { name: 'dsh-card-werewolf', inject: ['tavernUi'], apply(ctx) {
     hostUi = ctx.tavernUi
-    const view = { name: 'six-player', presentation: 'stage', render: Game, lobby: Lobby, stage: { scene, hud: Hud } }
+    const pageView = { name: 'six-player', presentation: 'page', render: Game, lobby: Lobby }
+    let stageSupported = false
+    const view = { ...pageView, presentation: 'stage', get stage() {
+      stageSupported = true
+      return stage
+    } }
     // scene() is re-read when the host re-renders the game surface; re-registering the same view is the
     // only signal a card has to ask for that after a client-only change (vote pick, 返回故事).
     let dispose = ctx.tavernUi.registerGameModeView(view)
-    refreshScene = () => { dispose?.(); dispose = ctx.tavernUi.registerGameModeView(view) }
+    // Older game-mode hosts ignore stage and need an explicit page registration for the lobby.
+    if (!stageSupported) {
+      dispose()
+      ctx.tavernUi.registerGameModeView(pageView)
+      return
+    }
+    refreshScene = () => { dispose(); dispose = ctx.tavernUi.registerGameModeView(view) }
   } }
 } })

@@ -9,27 +9,37 @@ export function apply(ctx, { choose = randomInt } = {}) {
   }
   ctx.tavern.gameMode({ ...gameMode, async create({ gameId, input }) {
     const card = await ctx.tavern.getCard({ gameId })
-    const cast = (card.character_book?.entries || []).flatMap(entry => {
+    const cast = (card?.character_book?.entries || []).flatMap(entry => {
       const match = /^\[cast\](.+)$/.exec(entry.comment || entry.name || '')
       return match && match[1].trim() ? [{ name: match[1].trim(), content: entry.content || '' }] : []
     })
-    const state = createState(input, choose, cast)
-    const data = await ctx.tavern.readGameData({ gameId }) || {}
-    await ctx.tavern.saveGameData({ gameId, data: { ...data, nonce: state.nonce,
-      notes: { ...data.notes, [state.nonce]: { marks: {}, text: '' } } } })
-    return { state }
+    return { state: createState(input, choose, cast) }
   } })
-  ctx.tavern.handle('notes', async ({ gameId, op, marks, text }) => {
-    const data = await ctx.tavern.readGameData({ gameId })
-    if (!data?.nonce) throw new Error('请先开始游戏')
-    const current = data.notes[data.nonce]
-    if (op === 'read') return current
+  const pendingSaves = new Map()
+  ctx.tavern.handle('dsh-card-werewolf:notes', async ({ gameId, matchId, op, marks, text }) => {
+    if (matchId !== 'legacy' && (typeof matchId !== 'string' || !/^[0-9a-f-]{36}$/.test(matchId))) throw new Error('无效的对局编号')
+    const read = async () => await ctx.tavern.readGameData({ gameId }) || {}
+    const notesFor = data => data.notes?.[matchId] ?? { marks: {}, text: '' }
+    if (op === 'read') {
+      await pendingSaves.get(gameId)?.catch(() => {})
+      return notesFor(await read())
+    }
     if (op !== 'save') throw new Error('未知笔记操作')
     if (marks !== undefined && (!marks || Array.isArray(marks) || typeof marks !== 'object' ||
       Object.entries(marks).some(([id, tag]) => !/^[1-6]$/.test(id) || typeof tag !== 'string' || tag.length > 40))) throw new Error('标记需要座位号和最多40字的标签')
     if (text !== undefined && (typeof text !== 'string' || text.length > 20000)) throw new Error('笔记最多20000字')
-    const next = { marks: marks ?? current.marks, text: text ?? current.text }
-    await ctx.tavern.saveGameData({ gameId, data: { ...data, notes: { ...data.notes, [data.nonce]: next } } })
-    return next
+    const save = (pendingSaves.get(gameId) || Promise.resolve()).catch(() => {}).then(async () => {
+      const data = await read()
+      const current = notesFor(data)
+      const next = { marks: marks ?? current.marks, text: text ?? current.text }
+      await ctx.tavern.saveGameData({ gameId, data: { ...data, notes: { ...data.notes, [matchId]: next } } })
+      return next
+    })
+    pendingSaves.set(gameId, save)
+    try {
+      return await save
+    } finally {
+      if (pendingSaves.get(gameId) === save) pendingSaves.delete(gameId)
+    }
   })
 }

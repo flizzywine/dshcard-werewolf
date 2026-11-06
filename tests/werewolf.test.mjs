@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
 import { createState, actionFor, perspective, project, accept, resolve, gameMode } from '../plugin/rules.mjs'
 
 function state() {
@@ -128,13 +130,13 @@ async function host(entries = []) {
   const { apply } = await import('../plugin/index.mjs')
   let mode, handler, saved
   apply({ tavern: { capabilities: { gameMode: 1 }, member() {},
-    gameMode(value) { mode = value }, handle(name, fn) { assert.equal(name, 'notes'); handler = fn },
+    gameMode(value) { mode = value }, handle(name, fn) { assert.equal(name, 'dsh-card-werewolf:notes'); handler = fn },
     async getCard({ gameId }) { assert.equal(gameId, 'game'); return { character_book: { entries } } },
     async readGameData() { return structuredClone(saved ?? null) },
     async saveGameData({ data }) { saved = structuredClone(data) },
   } }, { choose: () => 0 })
   const { state } = await mode.create({ gameId: 'game', input: { seat: 6 } })
-  return { state, notes: args => handler({ gameId: 'game', ...args }) }
+  return { state, notes: args => handler({ gameId: 'game', matchId: state.nonce, ...args }) }
 }
 
 test('create draws five distinct cast names from seven with injectable choose; empty cast keeps numbers', async () => {
@@ -175,6 +177,10 @@ test('player projection excludes other private logs, roles and memories before t
   s.human = 3
   assert.match(JSON.stringify(project(s)), /seer-secret/)
   assert.doesNotMatch(JSON.stringify(project(s)), /wolf-secret/)
+  s.human = 1
+  const wolfView = project(s)
+  assert.match(JSON.stringify(wolfView.history), /wolf-secret/)
+  assert.doesNotMatch(JSON.stringify(wolfView.stage.lines), /wolf-secret/)
 })
 
 test('notes save independently of game state and reset under a new game nonce', async () => {
@@ -185,9 +191,43 @@ test('notes save independently of game state and reset under a new game nonce', 
   assert.equal((await a.notes({ op: 'read' })).text, 'updated')
   assert.equal(JSON.stringify(a.state), before)
   await assert.rejects(a.notes({ op: 'save', marks: { 7: 'bad' } }))
-  const b = await host()
-  assert.notEqual(a.state.nonce, b.state.nonce)
-  assert.deepEqual(await b.notes({ op: 'read' }), { marks: {}, text: '' })
+  assert.deepEqual(await a.notes({ op: 'read', matchId: state().nonce }), { marks: {}, text: '' })
+})
+
+test('concurrent legacy notes patches retain both changes', async () => {
+  const a = await host()
+  const newMatchId = a.state.nonce
+  delete a.state.nonce
+  const matchId = project(a.state).matchId
+  assert.deepEqual(await a.notes({ matchId, op: 'read' }), { marks: {}, text: '' })
+  await Promise.all([
+    a.notes({ matchId, op: 'save', marks: { 1: '狼' } }),
+    a.notes({ matchId, op: 'save', text: 'private-note' }),
+  ])
+  assert.deepEqual(await a.notes({ matchId, op: 'read' }), { marks: { 1: '狼' }, text: 'private-note' })
+  assert.deepEqual(await a.notes({ matchId: newMatchId, op: 'read' }), { marks: {}, text: '' })
+})
+
+test('client registers the full page on old hosts and lends the stage on new hosts', () => {
+  const source = readFileSync(new URL('../plugin/client.js', import.meta.url), 'utf8')
+  for (const stageSupported of [false, true]) {
+    let registered
+    const tavernUi = {
+      registerGameModeView(view) {
+        assert.equal(registered, undefined)
+        const stage = stageSupported && view.presentation === 'stage' ? view.stage : null
+        registered = { presentation: view.presentation, stage, lobby: view.lobby, render: view.render }
+        return () => { registered = undefined }
+      },
+    }
+    runInNewContext(source, { window: { __ModuleLoader__: {
+      load({ factory }) { factory(() => ({})).apply({ tavernUi }) },
+    } } })
+    assert.equal(registered.presentation, stageSupported ? 'stage' : 'page')
+    assert.equal(typeof registered.lobby, 'function')
+    assert.equal(typeof registered.render, 'function')
+    if (stageSupported) assert.equal(typeof registered.stage.scene, 'function')
+  }
 })
 
 test('day 30 tie ends in a draw and stage vote exposes counts not choices', () => {

@@ -61,18 +61,17 @@ export function project(s) {
   const ownAction = action?.actor === s.human && (seat(s, s.human).alive || s.phase === 'last-words')
   const phase = s.gate || (nightPhase && !ownAction ? 'night' : s.phase)
   const speaker = ['speech', 'last-words'].includes(s.phase) ? s.queue[s.index] : null
-  const visible = e => e.to === 'public' || e.to === s.human || e.to === 'wolves' && seat(s, s.human).role === 'wolf'
   const line = (e, id) => ({ id, speaker: seat(s, e.actor)?.name ?? null, text: e.text, emotion: e.emotion || '' })
   const stage = {
     seats: s.players.map(({ id, name, alive }) => ({ id, name, alive, speaking: id === speaker, self: id === s.human })),
-    lines: s.log.flatMap((e, id) => visible(e) ? [line(e, id)] : []),
+    lines: s.log.flatMap((e, id) => e.to === 'public' ? [line(e, id)] : []),
     phase, day: s.day,
     vote: { open: ownAction && action?.kind === 'vote', cast: Object.keys(s.votes).length,
       total: living(s).length, targets: ownAction && action?.kind === 'vote' ? action.targets : [] },
     self: { role: p.self.role, nightResults: s.log.flatMap((e, id) => e.to === s.human ? [line(e, id)] : []) },
   }
-  return { ...p, stage, rules: RULES, winner: s.winner, human: s.human,
-    phase: s.gate || (nightPhase && !ownAction ? 'night' : s.phase),
+  return { ...p, stage, matchId: s.nonce ?? 'legacy', rules: RULES, winner: s.winner, human: s.human,
+    phase,
     spectating: !seat(s, s.human).alive && s.phase !== 'last-words',
     pendingLastWords: s.phase === 'last-words',
     currentSpeaker: ['speech', 'last-words'].includes(s.phase) ? s.queue[s.index] : null,
