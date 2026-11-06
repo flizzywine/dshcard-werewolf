@@ -3,6 +3,12 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    paths:
+      - 'plugin/**'
+      - 'lib/**'
+      - 'build.mjs'
+      - 'package.json'
+      - '.github/workflows/release.yml'
   pull_request:
 permissions:
   contents: read
@@ -21,18 +27,44 @@ jobs:
           name: werewolf-card
           path: dist/werewolf.dshcard
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    concurrency:
+      group: werewolf-release-${{ github.ref }}
     needs: build
     permissions:
       contents: write
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: werewolf-card
           path: dist
-      - run: gh release create "$TAG" dist/werewolf.dshcard --repo "$REPO" --title "$TAG" --generate-notes
+      - name: Publish card
+        run: |
+          if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            # A slower or rerun build must not replace a newer card.
+            changed=$(git diff --name-only "$GITHUB_SHA" origin/main -- plugin lib build.mjs package.json .github/workflows/release.yml)
+            if [[ -n "$changed" ]]; then
+              echo 'A newer main revision changes the card or its build. Skipping publication.'
+              exit 0
+            fi
+
+            tag="main-$GITHUB_SHA"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo 'This revision is already published.'
+              exit 0
+            fi
+
+            gh release create "$tag" dist/werewolf.dshcard --target "$GITHUB_SHA" \
+              --title "月下六席 · ${GITHUB_SHA:0:12}" --notes "自动构建自 main 提交 $GITHUB_SHA。" --latest
+          else
+            gh release create "$GITHUB_REF_NAME" dist/werewolf.dshcard --verify-tag \
+              --title "$GITHUB_REF_NAME" --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-          REPO: ${{ github.repository }}
